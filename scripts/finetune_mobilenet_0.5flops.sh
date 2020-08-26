@@ -1,4 +1,4 @@
-python -W ignore amc_fine_tune.py \
+python3 -W ignore amc_fine_tune.py \
     --model=mobilenet_0.5flops \
     --dataset=imagenet \
     --lr=0.05 \
@@ -9,5 +9,5 @@ python -W ignore amc_fine_tune.py \
     --n_epoch=150 \
     --wd=4e-5 \
     --seed=2018 \
-    --data_root=/dataset/imagenet \
+    --data_root=../imagenet \
     --ckpt_path=./checkpoints/mobilenet_0.5flops_export.pth.tar

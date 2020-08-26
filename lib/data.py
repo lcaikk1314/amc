@@ -39,8 +39,8 @@ def get_dataset(dset_name, batch_size, n_worker, data_root='../../data'):
         n_class = 10
     elif dset_name == 'imagenet':
         # get dir
-        traindir = os.path.join(data_root, 'train')
-        valdir = os.path.join(data_root, 'val')
+        traindir = os.path.join(data_root, 'ILSVRC2012_img_train')
+        valdir = os.path.join(data_root, 'ILSVRC2012_img_val')
 
         # preprocessing
         input_size = 224
