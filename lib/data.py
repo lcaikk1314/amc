@@ -127,8 +127,8 @@ def get_split_dataset(dset_name, batch_size, n_worker, val_size, data_root='../d
         n_class = 10
         
     elif dset_name == 'imagenet':
-        train_dir = os.path.join(data_root, 'train')
-        val_dir = os.path.join(data_root, 'val')
+        train_dir = os.path.join(data_root, 'ILSVRC2012_img_train')
+        val_dir = os.path.join(data_root, 'ILSVRC2012_img_val')
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
         input_size = 224
