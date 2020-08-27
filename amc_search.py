@@ -7,7 +7,7 @@ import numpy as np
 import argparse
 from copy import deepcopy
 import torch
-torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.deterministic = True # 控制随机种子
 
 from env.channel_pruning_env import ChannelPruningEnv
 from lib.agent import DDPG
