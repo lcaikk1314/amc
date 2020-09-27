@@ -87,13 +87,17 @@ def get_model_and_checkpoint(model, dataset, checkpoint_path, n_gpu=1):
         net = MobileNetV2(n_class=1000)
     else:
         raise NotImplementedError
-    sd = torch.load(checkpoint_path)
+    if torch.cuda.is_available():
+        sd = torch.load(checkpoint_path)
+    else:
+        sd = torch.load(checkpoint_path,map_location=torch.device('cpu'))
     if 'state_dict' in sd:  # a checkpoint but not a state_dict
         sd = sd['state_dict']
     sd = {k.replace('module.', ''): v for k, v in sd.items()}
     net.load_state_dict(sd)
-    net = net.cuda()
-    if n_gpu > 1:
+    if torch.cuda.is_available():
+        net = net.cuda()
+    if torch.cuda.is_available() and n_gpu > 1:
         net = torch.nn.DataParallel(net, range(n_gpu))
 
     return net, deepcopy(net.state_dict())

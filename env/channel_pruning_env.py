@@ -244,21 +244,33 @@ class ChannelPruningEnv:
         fit_t2 = time.time()
         self.fit_time += fit_t2 - fit_t1
         # now assign
-        op.weight.data = torch.from_numpy(rec_weight).cuda()
+        if torch.cuda.is_available():
+            op.weight.data = torch.from_numpy(rec_weight).cuda()
+        else:
+            op.weight.data = torch.from_numpy(rec_weight)
         action = np.sum(mask) * 1. / len(mask)  # calculate the ratio
         if self.export_model:  # prune previous buffer ops
             prev_idx = self.prunable_idx[self.prunable_idx.index(op_idx) - 1]
             for idx in range(prev_idx, op_idx):
                 m = m_list[idx]
                 if type(m) == nn.Conv2d:  # depthwise
-                    m.weight.data = torch.from_numpy(m.weight.data.cpu().numpy()[mask, :, :, :]).cuda()
+                    if torch.cuda.is_available():
+                        m.weight.data = torch.from_numpy(m.weight.data.cpu().numpy()[mask, :, :, :]).cuda()
+                    else:
+                        m.weight.data = torch.from_numpy(m.weight.data.cpu().numpy()[mask, :, :, :])
                     if m.groups == m.in_channels:
                         m.groups = int(np.sum(mask))
                 elif type(m) == nn.BatchNorm2d:
-                    m.weight.data = torch.from_numpy(m.weight.data.cpu().numpy()[mask]).cuda()
-                    m.bias.data = torch.from_numpy(m.bias.data.cpu().numpy()[mask]).cuda()
-                    m.running_mean.data = torch.from_numpy(m.running_mean.data.cpu().numpy()[mask]).cuda()
-                    m.running_var.data = torch.from_numpy(m.running_var.data.cpu().numpy()[mask]).cuda()
+                    if torch.cuda.is_available():
+                        m.weight.data = torch.from_numpy(m.weight.data.cpu().numpy()[mask]).cuda()
+                        m.bias.data = torch.from_numpy(m.bias.data.cpu().numpy()[mask]).cuda()
+                        m.running_mean.data = torch.from_numpy(m.running_mean.data.cpu().numpy()[mask]).cuda()
+                        m.running_var.data = torch.from_numpy(m.running_var.data.cpu().numpy()[mask]).cuda()
+                    else:
+                        m.weight.data = torch.from_numpy(m.weight.data.cpu().numpy()[mask])
+                        m.bias.data = torch.from_numpy(m.bias.data.cpu().numpy()[mask])
+                        m.running_mean.data = torch.from_numpy(m.running_mean.data.cpu().numpy()[mask])
+                        m.running_var.data = torch.from_numpy(m.running_var.data.cpu().numpy()[mask])
         return action, d_prime, preserve_idx
 
     def _is_final_layer(self):
@@ -417,8 +429,10 @@ class ChannelPruningEnv:
                 if i_b == self.n_calibration_batches:
                     break
                 self.data_saver.append((input.clone(), target.clone()))
-                input_var = torch.autograd.Variable(input).cuda()
-
+                if torch.cuda.is_available():
+                    input_var = torch.autograd.Variable(input).cuda()
+                else:
+                    input_var = torch.autograd.Variable(input)
                 # inference and collect stats
                 _ = self.model(input_var)
 
@@ -477,8 +491,10 @@ class ChannelPruningEnv:
 
         with torch.no_grad():
             for i_b, (input, target) in enumerate(self.data_saver):
-                input_var = torch.autograd.Variable(input).cuda()
-
+                if torch.cuda.is_available():
+                    input_var = torch.autograd.Variable(input).cuda()
+                else:
+                    input_var = torch.autograd.Variable(input)
                 # inference and collect stats
                 _ = self.model(input_var)
 
@@ -555,8 +571,10 @@ class ChannelPruningEnv:
         losses = AverageMeter()
         top1 = AverageMeter()
         top5 = AverageMeter()
-
-        criterion = nn.CrossEntropyLoss().cuda()
+        if torch.cuda.is_available():
+            criterion = nn.CrossEntropyLoss().cuda()
+        else:
+            criterion = nn.CrossEntropyLoss()
         # switch to evaluate mode
         model.eval()
         end = time.time()
@@ -564,10 +582,13 @@ class ChannelPruningEnv:
         t1 = time.time()
         with torch.no_grad():
             for i, (input, target) in enumerate(val_loader):
-                target = target.cuda(non_blocking=True)
-                input_var = torch.autograd.Variable(input).cuda()
-                target_var = torch.autograd.Variable(target).cuda()
-
+                if torch.cuda.is_available():
+                    target = target.cuda(non_blocking=True)
+                    input_var = torch.autograd.Variable(input).cuda()
+                    target_var = torch.autograd.Variable(target).cuda()
+                else:
+                    input_var = torch.autograd.Variable(input)
+                    target_var = torch.autograd.Variable(target)
                 # compute output
                 output = model(input_var)
                 loss = criterion(output, target_var)
