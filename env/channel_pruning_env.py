@@ -353,7 +353,7 @@ class ChannelPruningEnv:
         for i, m in enumerate(self.model.modules()):
             if type(m) in self.prunable_layer_types:
                 if type(m) == nn.Conv2d and m.groups == m.in_channels:  # depth-wise conv, buffer
-                    this_buffer_list.append(i)
+                    this_buffer_list.append(i)#
                 else:  # really prunable
                     self.prunable_idx.append(i)
                     self.prunable_ops.append(m)
@@ -517,7 +517,7 @@ class ChannelPruningEnv:
                         self.layer_info_dict[idx]['input_feat'] = np.vstack(
                             (self.layer_info_dict[idx]['input_feat'], f_in2save))
 
-    def _build_state_embedding(self):
+    def _build_state_embedding(self): #构建状态空间
         # build the static part of the state embedding
         layer_embedding = []
         module_list = list(self.model.modules())

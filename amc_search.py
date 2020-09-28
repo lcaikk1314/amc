@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument('--n_points_per_layer', default=10, type=int,
                         help='method to prune (fg/cp for fine-grained and channel pruning)')
     parser.add_argument('--channel_round', default=8, type=int, help='Round channel to multiple of channel_round')
-    # ddpg
+    # ddpg 
     parser.add_argument('--hidden1', default=300, type=int, help='hidden num of first fully connect layer')
     parser.add_argument('--hidden2', default=300, type=int, help='hidden num of second fully connect layer')
     parser.add_argument('--lr_c', default=1e-3, type=float, help='learning rate for actor')
@@ -54,7 +54,7 @@ def parse_args():
     parser.add_argument('--tau', default=0.01, type=float, help='moving average for target network')
     # noise (truncated normal distribution)
     parser.add_argument('--init_delta', default=0.5, type=float,
-                        help='initial variance of truncated normal distribution')
+                        help='initial variance of truncated normal distribution')#截断正态分布
     parser.add_argument('--delta_decay', default=0.95, type=float,
                         help='delta decay during exploration')
     # training
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     env = ChannelPruningEnv(model, checkpoint, args.dataset,
                             preserve_ratio=1. if args.job == 'export' else args.preserve_ratio,
                             n_data_worker=args.n_worker, batch_size=args.data_bsize,
-                            args=args, export_model=args.job == 'export', use_new_input=args.use_new_input)
+                            args=args, export_model=args.job == 'export', use_new_input=args.use_new_input) ###
 
     if args.job == 'train':
         # build folder and logs
@@ -242,8 +242,8 @@ if __name__ == "__main__":
         args.rmsize = args.rmsize * len(env.prunable_idx)  # for each layer
         print('** Actual replay buffer size: {}'.format(args.rmsize))
 
-        agent = DDPG(nb_states, nb_actions, args)
-        train(args.train_episode, agent, env, args.output)
+        agent = DDPG(nb_states, nb_actions, args) ###
+        train(args.train_episode, agent, env, args.output) ###
     elif args.job == 'export':
         export_model(env, args)
     else:
