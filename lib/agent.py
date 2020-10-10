@@ -77,7 +77,7 @@ class DDPG(object):
         self.hard_update(self.critic_target, self.critic)
 
         # Create replay buffer
-        self.memory = SequentialMemory(limit=args.rmsize, window_length=args.window_length)
+        self.memory = SequentialMemory(limit=args.rmsize, window_length=args.window_length) ### 开辟内存过程，外部直接调用即可，可暂不细看
         # self.random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=args.ou_theta, mu=args.ou_mu,
         #                                                sigma=args.ou_sigma)
 
@@ -175,16 +175,16 @@ class DDPG(object):
             # self.s_t = s_t1
 
     def random_action(self):
-        action = np.random.uniform(self.lbound, self.rbound, self.nb_actions)
+        action = np.random.uniform(self.lbound, self.rbound, self.nb_actions)#从一个均匀分布[low,high)中随机采样，注意定义域是左闭右开，即包含low，不包含high.
         # self.a_t = action
         return action
 
     def select_action(self, s_t, episode):
         # assert episode >= self.warmup, 'Episode: {} warmup: {}'.format(episode, self.warmup)
-        action = to_numpy(self.actor(to_tensor(np.array(s_t).reshape(1, -1)))).squeeze(0)
+        action = to_numpy(self.actor(to_tensor(np.array(s_t).reshape(1, -1)))).squeeze(0) #使用网络，前向推理
         delta = self.init_delta * (self.delta_decay ** (episode - self.warmup))
         # action += self.is_training * max(self.epsilon, 0) * self.random_process.sample()
-        action = self.sample_from_truncated_normal_distribution(lower=self.lbound, upper=self.rbound, mu=action, sigma=delta)
+        action = self.sample_from_truncated_normal_distribution(lower=self.lbound, upper=self.rbound, mu=action, sigma=delta) # 第三方库，截断正太分布，对 action增加noise噪声扰动
         action = np.clip(action, self.lbound, self.rbound)
 
         # self.a_t = action

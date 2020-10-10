@@ -51,21 +51,21 @@ class ChannelPruningEnv:
         assert self.preserve_ratio > self.lbound, 'Error! You can make achieve preserve_ratio smaller than lbound!'
 
         # prepare data
-        self._init_data()
+        self._init_data()# 准备数据集
 
         # build indexs
-        self._build_index()
+        self._build_index() # 对模型结构进行分析，并增加一些变量以备裁剪使用
         self.n_prunable_layer = len(self.prunable_idx)
 
         # extract information for preparing
-        self._extract_layer_information()
+        self._extract_layer_information() # 提取一些信息，并为裁剪做准备，计算量+参数量，输入输出特征图
 
         # build embedding (static part)
-        self._build_state_embedding()
+        self._build_state_embedding() # 构建状态空间layer_embedding，并进行归一化
 
         # build reward
-        self.reset()  # restore weight
-        self.org_acc = self._validate(self.val_loader, self.model)
+        self.reset()  # restore weight 重新加载恢复模型权值，将状态空间中部分参数恢复到初始状态
+        self.org_acc = self._validate(self.val_loader, self.model) # 正常的验证模型精度，使用top5
         print('=> original acc: {:.3f}%'.format(self.org_acc))
         self.org_model_size = sum(self.wsize_list)
         print('=> original weight size: {:.4f} M param'.format(self.org_model_size * 1. / 1e6))
@@ -76,9 +76,9 @@ class ChannelPruningEnv:
 
         self.expected_preserve_computation = self.preserve_ratio * self.org_flops
 
-        self.reward = eval(args.reward)
+        self.reward = eval(args.reward) # eval函数就是实现list、dict、tuple与str之间的转化，https://blog.csdn.net/qq_26442553/article/details/94396532
 
-        self.best_reward = -math.inf
+        self.best_reward = -math.inf #math.inf返回浮点正无穷大
         self.best_strategy = None
         self.best_d_prime_list = None
 
@@ -90,14 +90,14 @@ class ChannelPruningEnv:
             action = self.strategy_dict[self.prunable_idx[self.cur_ind]][0]
             preserve_idx = self.index_buffer[self.cur_ind]
         else:
-            action = self._action_wall(action)  # percentage to preserve
+            action = self._action_wall(action)  # percentage to preserve，利用已裁掉计算量与剩余计算量，对action数值进行限制，对应论文中的伪代码
             preserve_idx = None
 
-        # prune and update action
+        # prune and update action ，整个模型裁剪过程，获取mask，并对模型进行权值处理,内部直接按权值大小进行剪枝
         action, d_prime, preserve_idx = self.prune_kernel(self.prunable_idx[self.cur_ind], action, preserve_idx)
 
         if not self.visited[self.cur_ind]:
-            for group in self.shared_idx:
+            for group in self.shared_idx: #mobileV1时 self.shared_idx为空的
                 if self.cur_ind in group:  # set the shared ones
                     for g_idx in group:
                         self.strategy_dict[self.prunable_idx[g_idx]][0] = action
@@ -113,7 +113,7 @@ class ChannelPruningEnv:
 
         self.strategy_dict[self.prunable_idx[self.cur_ind]][0] = action
         if self.cur_ind > 0:
-            self.strategy_dict[self.prunable_idx[self.cur_ind - 1]][1] = action
+            self.strategy_dict[self.prunable_idx[self.cur_ind - 1]][1] = action ## 通道号必须对上，需要弄懂作者的裁剪思路；
 
         # all the actions are made
         if self._is_final_layer():
@@ -125,7 +125,7 @@ class ChannelPruningEnv:
             self.val_time = acc_t2 - acc_t1
             compress_ratio = current_flops * 1. / self.org_flops
             info_set = {'compress_ratio': compress_ratio, 'accuracy': acc, 'strategy': self.strategy.copy()}
-            reward = self.reward(self, acc, current_flops)
+            reward = self.reward(self, acc, current_flops) #获得总的reward，函数定义在rewards.py内的acc_reward
 
             if reward > self.best_reward:
                 self.best_reward = reward
@@ -166,7 +166,7 @@ class ChannelPruningEnv:
         self.layer_embedding[:, -1] = 1.
         self.layer_embedding[:, -2] = 0.
         self.layer_embedding[:, -3] = 0.
-        obs = self.layer_embedding[0].copy()
+        obs = self.layer_embedding[0].copy() # 修改第一层空间参数，余下参数量占总参数量，？？？？论文中使用的计算量，代码裁剪空间使用的是参数量
         obs[-2] = sum(self.wsize_list[1:]) * 1. / sum(self.wsize_list)
         self.extract_time = 0
         self.fit_time = 0
@@ -194,7 +194,7 @@ class ChannelPruningEnv:
             rank = int(np.around(x))
             return max(rank, 1)
 
-        n, c = op.weight.size(0), op.weight.size(1)
+        n, c = op.weight.size(0), op.weight.size(1) #控制输出通道为8的整数倍
         d_prime = format_rank(c * preserve_ratio)
         d_prime = int(np.ceil(d_prime * 1. / self.channel_round) * self.channel_round)
         if d_prime > c:
@@ -215,10 +215,10 @@ class ChannelPruningEnv:
         extract_t2 = time.time()
         self.extract_time += extract_t2 - extract_t1
         fit_t1 = time.time()
-
+        # 获得需要保留通道的mask
         if preserve_idx is None:  # not provided, generate new
             importance = np.abs(weight).sum((0, 2, 3))
-            sorted_idx = np.argsort(-importance)  # sum magnitude along C_in, sort descend
+            sorted_idx = np.argsort(-importance)  # sum magnitude along C_in, sort descend，降序排序
             preserve_idx = sorted_idx[:d_prime]  # to preserve index
         assert len(preserve_idx) == d_prime
         mask = np.zeros(weight.shape[1], bool)
@@ -226,7 +226,7 @@ class ChannelPruningEnv:
 
         # reconstruct, X, Y <= [N, C]
         masked_X = X[:, mask]
-        if weight.shape[2] == 1:  # 1x1 conv or fc
+        if weight.shape[2] == 1:  # 1x1 conv or fc，权值处理过程？？
             from lib.utils import least_square_sklearn
             rec_weight = least_square_sklearn(X=masked_X, Y=Y)
             rec_weight = rec_weight.reshape(-1, 1, 1, d_prime)  # (C_out, K_h, K_w, C_in')
@@ -249,6 +249,8 @@ class ChannelPruningEnv:
         else:
             op.weight.data = torch.from_numpy(rec_weight)
         action = np.sum(mask) * 1. / len(mask)  # calculate the ratio
+        # 此处存在疑问：1）上面的裁剪是伪裁剪还是真实裁剪？应该是真实裁剪
+        # 2）下面的裁剪是真实裁剪
         if self.export_model:  # prune previous buffer ops
             prev_idx = self.prunable_idx[self.prunable_idx.index(op_idx) - 1]
             for idx in range(prev_idx, op_idx):
@@ -286,7 +288,7 @@ class ChannelPruningEnv:
         this_comp = 0
         for i, idx in enumerate(self.prunable_idx):
             flop = self.layer_info_dict[idx]['flops']
-            buffer_flop = self._get_buffer_flops(idx)
+            buffer_flop = self._get_buffer_flops(idx) # 获取深度分离卷积的计算量，该深度分离卷积与被裁剪卷积处于同一个mobile module
 
             if i == self.cur_ind - 1:  # TODO: add other member in the set
                 this_comp += flop * self.strategy_dict[idx][0]
@@ -354,18 +356,18 @@ class ChannelPruningEnv:
             if type(m) in self.prunable_layer_types:
                 if type(m) == nn.Conv2d and m.groups == m.in_channels:  # depth-wise conv, buffer
                     this_buffer_list.append(i)#
-                else:  # really prunable
+                else:  # really prunable，每个mobilemodule，对应一个3*3卷积和一个1*1卷积
                     self.prunable_idx.append(i)
                     self.prunable_ops.append(m)
                     self.layer_type_dict[i] = type(m)
                     self.buffer_dict[i] = this_buffer_list
-                    this_buffer_list = []  # empty
-                    self.org_channels.append(m.in_channels if type(m) == nn.Conv2d else m.in_features)
+                    this_buffer_list = []  # empty 清空
+                    self.org_channels.append(m.in_channels if type(m) == nn.Conv2d else m.in_features) #适应卷积和全连接
 
-                    self.strategy_dict[i] = [self.lbound, self.lbound]
+                    self.strategy_dict[i] = [self.lbound, self.lbound] #
 
-        self.strategy_dict[self.prunable_idx[0]][0] = 1  # modify the input
-        self.strategy_dict[self.prunable_idx[-1]][1] = 1  # modify the output
+        self.strategy_dict[self.prunable_idx[0]][0] = 1  # modify the input，第一个卷积的输入通道不裁剪，对应图像通道数3
+        self.strategy_dict[self.prunable_idx[-1]][1] = 1  # modify the output，最后一个卷积或全连接的输出通道不裁剪，对应输出类别
 
         self.shared_idx = []
         if self.args.model == 'mobilenetv2':  # TODO: to be tested! Share index for residual connection
@@ -385,7 +387,7 @@ class ChannelPruningEnv:
         self.min_strategy_dict = copy.deepcopy(self.strategy_dict)
 
         self.buffer_idx = []
-        for k, v in self.buffer_dict.items():
+        for k, v in self.buffer_dict.items(): # dict变成list
             self.buffer_idx += v
 
         print('=> Prunable layer idx: {}'.format(self.prunable_idx))
@@ -406,17 +408,15 @@ class ChannelPruningEnv:
 
         from lib.utils import measure_layer_for_pruning
 
-        # extend the forward fn to record layer info
+        # extend the forward fn to record layer info ## 用途？？
         def new_forward(m):
             def lambda_forward(x):
                 m.input_feat = x.clone()
-                measure_layer_for_pruning(m, x)
+                measure_layer_for_pruning(m, x) ####################### 待消化
                 y = m.old_forward(x)
                 m.output_feat = y.clone()
                 return y
-
             return lambda_forward
-
         for idx in self.prunable_idx + self.buffer_idx:  # get all
             m = m_list[idx]
             m.old_forward = m.forward
@@ -449,9 +449,9 @@ class ChannelPruningEnv:
                     if len(f_in_np.shape) == 4:  # conv
                         if self.prunable_idx.index(idx) == 0:  # first conv
                             f_in2save, f_out2save = None, None
-                        elif m_list[idx].weight.size(3) > 1:  # normal conv
+                        elif m_list[idx].weight.size(3) > 1:  # normal conv 此处指卷积核>1，指mobileModule中3*3的可深度分离卷积
                             f_in2save, f_out2save = f_in_np, f_out_np
-                        else:  # 1x1 conv
+                        else:  # 1x1 conv #################### 待消化
                             # assert f_out_np.shape[2] == f_in_np.shape[2]  # now support k=3
                             randx = np.random.randint(0, f_out_np.shape[2] - 0, self.n_points_per_layer)
                             randy = np.random.randint(0, f_out_np.shape[3] - 0, self.n_points_per_layer)
@@ -464,7 +464,7 @@ class ChannelPruningEnv:
 
                             f_out2save = f_out_np[:, :, randx, randy].copy().transpose(0, 2, 1) \
                                 .reshape(self.batch_size * self.n_points_per_layer, -1)
-                    else:
+                    else: #全连接
                         assert len(f_in_np.shape) == 2
                         f_in2save = f_in_np.copy()
                         f_out2save = f_out_np.copy()
@@ -523,7 +523,7 @@ class ChannelPruningEnv:
         module_list = list(self.model.modules())
         for i, ind in enumerate(self.prunable_idx):
             m = module_list[ind]
-            this_state = []
+            this_state = [] #a_{t}
             if type(m) == nn.Conv2d:
                 this_state.append(i)  # index
                 this_state.append(0)  # layer type, 0 for conv
@@ -542,16 +542,16 @@ class ChannelPruningEnv:
                 this_state.append(np.prod(m.weight.size()))  # weight size
 
             # this 3 features need to be changed later
-            this_state.append(0.)  # reduced
-            this_state.append(0.)  # rest
-            this_state.append(1.)  # a_{t-1}
+            this_state.append(0.)  # reduced，Reduced is the total number of reduced FLOPs in previous layers
+            this_state.append(0.)  # rest，Rest is the number of remaining FLOPs in the following layers
+            this_state.append(1.)  # a_{t-1}，？？上一个裁剪空间
             layer_embedding.append(np.array(this_state))
 
         # normalize the state
         layer_embedding = np.array(layer_embedding, 'float')
         print('=> shape of embedding (n_layer * n_dim): {}'.format(layer_embedding.shape))
         assert len(layer_embedding.shape) == 2, layer_embedding.shape
-        for i in range(layer_embedding.shape[1]):
+        for i in range(layer_embedding.shape[1]):# 做归一化，所有的参数都做归一化，甚至连layer index都做
             fmin = min(layer_embedding[:, i])
             fmax = max(layer_embedding[:, i])
             if fmax - fmin > 0:
