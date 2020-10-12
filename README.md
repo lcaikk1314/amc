@@ -5,7 +5,6 @@ This repo contains the PyTorch implementation for paper [**AMC: AutoML for Model
 ![overview](https://hanlab.mit.edu/projects/amc/images/overview.png)
 
 
-
 ## Reference
 
 If you find the repo useful, please kindly cite our paper:

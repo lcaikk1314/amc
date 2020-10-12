@@ -74,7 +74,7 @@ class DDPG(object):
         self.critic_optim = Adam(self.critic.parameters(), lr=args.lr_c)
 
         self.hard_update(self.actor_target, self.actor)  # Make sure target is with the same weight
-        self.hard_update(self.critic_target, self.critic)
+        self.hard_update(self.critic_target, self.critic) #另一个问题就是直接使用Q-Learning往往在很多环境中不是很稳定。因为Q网络更新后同时用于计算目标的值。这样Q的更新很容易发散。解决这个问题的办法和DQN类似，这里采样所谓的“soft” target updates。也就是复制了一份actor和critic的网络，这个网络用于计算target值
 
         # Create replay buffer
         self.memory = SequentialMemory(limit=args.rmsize, window_length=args.window_length) ### 开辟内存过程，外部直接调用即可，可暂不细看

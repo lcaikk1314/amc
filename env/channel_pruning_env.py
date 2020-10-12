@@ -58,7 +58,7 @@ class ChannelPruningEnv:
         self.n_prunable_layer = len(self.prunable_idx)
 
         # extract information for preparing
-        self._extract_layer_information() # 提取一些信息，并为裁剪做准备，计算量+参数量，输入输出特征图
+        self._extract_layer_information() # 提取一些信息，并为裁剪做准备，计算量+参数量+输入输出特征尺寸，输入输出特征图
 
         # build embedding (static part)
         self._build_state_embedding() # 构建状态空间layer_embedding，并进行归一化
@@ -362,7 +362,7 @@ class ChannelPruningEnv:
                     self.layer_type_dict[i] = type(m)
                     self.buffer_dict[i] = this_buffer_list
                     this_buffer_list = []  # empty 清空
-                    self.org_channels.append(m.in_channels if type(m) == nn.Conv2d else m.in_features) #适应卷积和全连接
+                    self.org_channels.append(m.in_channels if type(m) == nn.Conv2d else m.in_features) #适应卷积和全连接，为何只记录输入通道？
 
                     self.strategy_dict[i] = [self.lbound, self.lbound] #
 
@@ -403,12 +403,12 @@ class ChannelPruningEnv:
 
         self.data_saver = []
         self.layer_info_dict = dict()
-        self.wsize_list = []
-        self.flops_list = []
+        self.wsize_list = [] #权值数目
+        self.flops_list = [] #计算量
 
         from lib.utils import measure_layer_for_pruning
 
-        # extend the forward fn to record layer info ## 用途？？
+        # extend the forward fn to record layer info
         def new_forward(m):
             def lambda_forward(x):
                 m.input_feat = x.clone()
@@ -424,7 +424,7 @@ class ChannelPruningEnv:
 
         # now let the image flow
         print('=> Extracting information...')
-        with torch.no_grad():
+        with torch.no_grad(): #没有反向传播，正向推理
             for i_b, (input, target) in enumerate(self.train_loader):  # use image from train set
                 if i_b == self.n_calibration_batches:
                     break

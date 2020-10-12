@@ -120,7 +120,7 @@ def train(num_episode, agent, env, output):
             action = agent.random_action() # 取的随机值 
             # action = sample_from_truncated_normal_distribution(lower=0., upper=1., mu=env.preserve_ratio, sigma=0.5)
         else:
-            action = agent.select_action(observation, episode=episode) # 通过网络推理出来的保留比例
+            action = agent.select_action(observation, episode=episode) # 通过网络推理出来的保留比例，DDPG的前向推理
 
         # env response with next_observation, reward, terminate_info
         observation2, reward, done, info = env.step(action) # 核心，裁剪比例确认、模型裁剪，observation2为新的裁剪空间
@@ -240,9 +240,9 @@ if __name__ == "__main__":
         nb_actions = 1  # just 1 action here
 
         args.rmsize = args.rmsize * len(env.prunable_idx)  # for each layer，这部分仅是打印缓存大小，为何是这个大小？
-        print('** Actual replay buffer size: {}'.format(args.rmsize))
+        print('** Actual replay buffer size: {}'.format(args.rmsize)) # replay buffer就是存储之前的sample。然后学习就从里面随机采样n个样本进行mini-batch训练，这样就能使样本没有相关性。
 
-        agent = DDPG(nb_states, nb_actions, args) # 内部定义了小网络(由全连接构成)
+        agent = DDPG(nb_states, nb_actions, args) # 内部定义了小网络(由全连接构成)，DDPG原理：https://blog.csdn.net/songrotek/article/details/50917337
         train(args.train_episode, agent, env, args.output) ###
     elif args.job == 'export':
         export_model(env, args)
